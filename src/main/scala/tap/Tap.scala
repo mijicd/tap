@@ -21,7 +21,12 @@ trait Tap[-E1, +E2] {
 }
 
 object Tap {
-  type Percentage = Double
+  final case class Percentage private (value: Double) extends AnyVal
+
+  object Percentage {
+    def fromValue(value: Double): Option[Percentage] =
+      if (value < 0 || value > 100) None else Some(Percentage(value))
+  }
 
   /**
     * Creates a tap that aims for the specified
@@ -49,7 +54,7 @@ object Tap {
       }
 
   private final case class State(totalTasks: Long, failedTasks: Long) {
-    def breachesBound(errBound: Percentage): Boolean = failedTasks * 100 > errBound * totalTasks
+    def breachesBound(bound: Percentage): Boolean = failedTasks * 100 > bound.value * totalTasks
 
     def storeResult(result: Boolean): State =
       if (result) copy(totalTasks = totalTasks + 1) else State(totalTasks + 1, failedTasks + 1)
