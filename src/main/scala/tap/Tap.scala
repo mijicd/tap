@@ -24,8 +24,11 @@ object Tap {
   final case class Percentage private (value: Double) extends AnyVal
 
   object Percentage {
-    def fromValue(value: Double): Option[Percentage] =
-      if (value < 0 || value > 100) None else Some(Percentage(value))
+    def fromValue(value: Double): UIO[Percentage] =
+      if (value < 0 || value > 100)
+        ZIO.die(new IllegalArgumentException("Value must be taken from [0, 100]."))
+      else
+        ZIO.succeed(Percentage(value))
   }
 
   /**
