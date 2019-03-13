@@ -34,22 +34,24 @@ object Tap {
     */
   def make[E1, E2](errBound: Percentage, qualified: E1 => Boolean, rejected: => E2): UIO[Tap[E1, E2]] =
     for {
-      ref      <- Ref.make[List[Boolean]](Nil)
-      results  <- ref.get
-      failures = results.count(!_)
+      ref   <- Ref.make(State(0, 0))
+      state <- ref.get
     } yield
       new Tap[E1, E2] {
         override def apply[R, E >: E2 <: E1, A](effect: ZIO[R, E, A]): ZIO[R, E, A] =
-          if (failures > errBound * results.size)
-            ref.update(storeResult(true)) *> ZIO.fail(rejected)
+          if (state.breachesBound(errBound))
+            ref.update(_.storeResult(true)) *> ZIO.fail(rejected)
           else
             effect.either.flatMap {
-              case err @ Left(e) => ref.update(storeResult(qualified(e))).map(_ => err)
-              case res           => ref.update(storeResult(true)).map(_ => res)
+              case err @ Left(e) => ref.update(_.storeResult(qualified(e))).map(_ => err)
+              case res           => ref.update(_.storeResult(true)).map(_ => res)
             }.absolve
       }
 
-  private def storeResult(result: Boolean)(results: List[Boolean]): List[Boolean] = (result :: results).take(QueueSize)
+  private final case class State(totalTasks: Long, failedTasks: Long) {
+    def breachesBound(errBound: Percentage): Boolean = failedTasks > errBound * totalTasks
 
-  private val QueueSize = 100
+    def storeResult(result: Boolean): State =
+      if (result) copy(totalTasks = totalTasks + 1) else State(totalTasks + 1, failedTasks + 1)
+  }
 }
