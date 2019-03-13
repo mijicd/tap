@@ -49,7 +49,7 @@ object Tap {
       }
 
   private final case class State(totalTasks: Long, failedTasks: Long) {
-    def breachesBound(errBound: Percentage): Boolean = failedTasks > errBound * totalTasks
+    def breachesBound(errBound: Percentage): Boolean = failedTasks * 100 > errBound * totalTasks
 
     def storeResult(result: Boolean): State =
       if (result) copy(totalTasks = totalTasks + 1) else State(totalTasks + 1, failedTasks + 1)
